@@ -5,6 +5,7 @@ CONFIGURATION
 */
 // listing of all source files, with dependencies listed in order:
 var SOURCE_FILES = [
+	__dirname + "/../src/easeljs/events/EventDispatcher.js",
 	__dirname + "/../src/preloadjs/AbstractLoader.js",
 	__dirname + "/../src/preloadjs/PreloadJS.js",
 	__dirname + "/../src/preloadjs/TagLoader.js",

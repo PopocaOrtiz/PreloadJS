@@ -19,8 +19,6 @@ Version NEXT
 - Internal reorganization of entire library
 - Moved onFileLoad and onFileProgress event/handlers from AbstractLoader to PreloadJS
 - Added parsing of XML, JSON, and JavaScript files to return formatted results
-
-FILL IN WHEN COMPLETE
 - Added CreateJS EventDispatcher support
 
 

@@ -57,9 +57,9 @@
  *     <li>Image: An &lt;img /&gt; tag</li>
  *     <li>Audio: An &lt;audio /&gt; tag</a>
  *     <li>JavaScript: A &lt;script /&gt; tag</li>
- *     <li>CSS: A &lt;link /&gt; tag</li>
+ *     <li>CSS: A &lt;link /&gt; tag (tag loading) or a &lt;style /&gt; tag (xhr loading)</li>
  *     <li>XML: An XML DOM node</li>
- *     <li>SVG: An &lt;object /&gt; tag</li>
+ *     <li>SVG: An &lt;object /&gt; tag (tag loading) or a &lt;svg /&gt; tag (xhr loading)</li>
  *     <li>JSON: A formatted JavaScript Object</li>
  *     <li>Text: Raw text</li>
  *     <li>Binary: The binary loaded result</li>
