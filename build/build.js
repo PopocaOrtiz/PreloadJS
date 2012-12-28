@@ -198,12 +198,12 @@ function main(argv)
 
 function cleanTask(completeHandler)
 {
-	if(PATH.existsSync(TMP_DIR_NAME))
+	if(FILE.existsSync(TMP_DIR_NAME))
 	{
 		WRENCH.rmdirSyncRecursive(TMP_DIR_NAME);
 	}
 
-	if(PATH.existsSync(OUTPUT_DIR_NAME))
+	if(FILE.existsSync(OUTPUT_DIR_NAME))
 	{
 		WRENCH.rmdirSyncRecursive(OUTPUT_DIR_NAME);
 	}
@@ -211,7 +211,7 @@ function cleanTask(completeHandler)
 
 function buildSourceTask(completeHandler)
 {
-	if(!PATH.existsSync(OUTPUT_DIR_NAME))
+	if(!FILE.existsSync(OUTPUT_DIR_NAME))
 	{
 		FILE.mkdirSync(OUTPUT_DIR_NAME);
 	}
@@ -291,20 +291,12 @@ function buildDocsTask(version, completeHandler)
 
 	var doc_dir=DOCS_DIR_NAME.split("%VERSION%").join(version);
 	var doc_file=DOCS_FILE_NAME.split("%VERSION%").join(version);
-
+	
 	var generator_out=PATH.join(OUTPUT_DIR_NAME, doc_dir);
+    var cmd = ["yuidoc -q --themedir ./createjsTheme --project-version", version];               
 
-	var cmd = [
-		"python", YUI_DOC_PATH,
-		parser_in,
-		"-p", parser_out,
-		"-o", generator_out,
-		"-t", TEMPLATE_DIR_PATH,
-		"-v", version,
-		"-Y", YUI_VERSION,
-		"-m", PROJECT_NAME,
-		"-u", PROJECT_URL
-	];
+	var whereZipLives = PATH.resolve("../docs/");  
+	var cmd1 = "cd " + whereZipLives + "; zip -r " + doc_file + " " + "./output" + " -x *.DS_Store";
 
 	CHILD_PROCESS.exec(
 		cmd.join(" "),
@@ -330,7 +322,7 @@ function buildDocsTask(version, completeHandler)
 		    }
 
 			CHILD_PROCESS.exec(
-				"cd " + OUTPUT_DIR_NAME + ";zip -r " + doc_file + " " + doc_dir + " -x *.DS_Store",
+				cmd1,
 				function(error, stdout, stderr)
 				{
 					if(verbose)
@@ -352,7 +344,7 @@ function buildDocsTask(version, completeHandler)
 						exitWithFailure();
 				    }
 
-					WRENCH.rmdirSyncRecursive(TMP_DIR_NAME);
+					//WRENCH.rmdirSyncRecursive(TMP_DIR_NAME);
 
 					completeHandler(true);
 				});

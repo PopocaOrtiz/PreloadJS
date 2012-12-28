@@ -1,0 +1,16 @@
+{
+    "version": "1.0.0",
+    "name": "PreloadJS",
+    "description": "Preload JS API.",
+
+    "url": "http://www.createjs.com/#!/PreloadJS",
+    "logo":"http://beta.createjs.com/resources/SuiteIcons/PreloadJS/PreloadJS_128x128.png",
+    "options": {
+        "outdir": "../docs/output",
+        "linkNatives": "true",
+        "attributesEmit": "true",
+        "selleck": "true",
+        "paths":["../src"],
+		"helpers" : ["./path.js"]
+    }
+}

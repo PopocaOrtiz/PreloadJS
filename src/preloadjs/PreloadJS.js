@@ -27,73 +27,72 @@
 * OTHER DEALINGS IN THE SOFTWARE.
 */
 /**
- * PreloadJS provides a consistent API for preloading content in HTML5.
  * @module PreloadJS
  */
 
 // namespace:
 this.createjs = this.createjs||{};
 
+//TODO: JSONP support?
+//TODO: addHeadTags support
+
+/*
+TODO: WINDOWS ISSUES
+	* No error for HTML audio in IE 678
+	* SVG in IE678 TAGS adds null object to stage. (LM: Should be resolved)
+	* SVG no failure error in IE 67 (maybe 8) TAGS AND XHR
+	* No script complete handler in IE 67 TAGS (XHR is fine)
+	* No XML/JSON in IE6 TAGS
+	* Need to hide loading SVG in Opera TAGS
+	* No CSS onload/readystatechange in Safari TAGS
+	* SVG no load or failure in Opera XHR
+ */
+
 (function() {
 
 	/**
-	 * PreloadJS provides a consistent way to preload content for use in HTML applications.
+	 * The PreloadJS class is the main API for preloading content. PreloadJS is a load manager, which maintains
+	 * a single file, or a queue of files. Create a queue, add files to it, and listen for events to load and manage
+	 * the preloading of images, text, audio, and other HTML-based content.
 	 * @class PreloadJS
-	 * @param {Boolean} useXHR2 Determines whether the preload instance will use XHR (XML HTTP Requests), or fall back on tag loading.
+	 * @param {Boolean} useXHR Determines whether the preload instance will favor loading with XHR (XML HTTP Requests),
+	 * or HTML tags. When this is <code>false</code>, PreloadJS will use tag loading when possible, and fall back on XHR
+	 * when necessary.
 	 * @constructor
 	 * @extends AbstractLoader
 	 */
-	var PreloadJS = function(useXHR2) {
-		this.initialize(useXHR2);
+	var PreloadJS = function(useXHR) {
+		this.init(useXHR);
 	};
 
 	var p = PreloadJS.prototype = new createjs.AbstractLoader();
 	var s = PreloadJS;
 
-	// Preload Types
 	/**
-	 * The preload type for image files, usually png, gif, or jpg/jpeg
-	 * @property IMAGE
-	 * @type String
-	 * @default image
-	 * @static
+	 * The current version of the PreloadJS library.
+	 * @type {String}
+	 * @default 0.2.1
 	 */
-	s.IMAGE = "image";
-
-	/** The preload type for SVG files.
-	 * @property SVG
-	 * @type String
-	 * @default svg
-	 * @static
-	 */
-	s.SVG = "svg";
+	s.VERSION = "0.2.2";
 
 	/**
-	 * The preload type for sound files, usually mp3, ogg, or wav.
-	 * @property SOUND
-	 * @type String
-	 * @default sound
+	 * Time in milliseconds to assume a load has failed.
+	 * @property TIMEOUT_TIME
+	 * @type Number
+	 * @default 8000
 	 * @static
 	 */
-	s.SOUND = "sound";
+	s.TIMEOUT_TIME = 8000;
 
+// Preload Types
 	/**
-	 * The preload type for json files, usually with the "json" file extension.
-	 * @property JSON
+	 * The preload type for generic binary types. Note that images and sound files are also treated as binary.
+	 * @property BINARY
 	 * @type String
-	 * @default json
+	 * @default binary
 	 * @static
 	 */
-	s.JSON = "json";
-
-	/**
-	 * The preload type for javascript files, usually with the "js" file extension.
-	 * @property JAVASCRIPT
-	 * @type String
-	 * @default javascript
-	 * @static
-	 */
-	s.JAVASCRIPT = "javascript";
+	s.BINARY = "binary";
 
 	/**
 	 * The preload type for css files.
@@ -105,13 +104,48 @@ this.createjs = this.createjs||{};
 	s.CSS = "css";
 
 	/**
-	 * The preload type for xml files.
-	 * @property XML
+	 * The preload type for image files, usually png, gif, or jpg/jpeg
+	 * @property IMAGE
 	 * @type String
-	 * @default xml
+	 * @default image
 	 * @static
 	 */
-	s.XML = "xml";
+	s.IMAGE = "image";
+
+	/**
+	 * The preload type for javascript files, usually with the "js" file extension.
+	 * @property JAVASCRIPT
+	 * @type String
+	 * @default javascript
+	 * @static
+	 */
+	s.JAVASCRIPT = "javascript";
+
+	/**
+	 * The preload type for json files, usually with the "json" file extension.
+	 * @property JSON
+	 * @type String
+	 * @default json
+	 * @static
+	 */
+	s.JSON = "json";
+
+	/**
+	 * The preload type for sound files, usually mp3, ogg, or wav.
+	 * @property SOUND
+	 * @type String
+	 * @default sound
+	 * @static
+	 */
+	s.SOUND = "sound";
+
+	/** The preload type for SVG files.
+	 * @property SVG
+	 * @type String
+	 * @default svg
+	 * @static
+	 */
+	s.SVG = "svg";
 
 	/**
 	 * The preload type for text files, which is also the default file type if the type can not be determined.
@@ -123,30 +157,25 @@ this.createjs = this.createjs||{};
 	s.TEXT = "text";
 
 	/**
-	 * Time in millseconds to assume a load has failed.
-	 * @property TIMEOUT_TIME
-	 * @type Number
-	 * @default 8000
+	 * The preload type for xml files.
+	 * @property XML
+	 * @type String
+	 * @default xml
 	 * @static
 	 */
-	s.TIMEOUT_TIME = 8000;
+	s.XML = "xml";
 
-	// Flags
+
+// Prototype
 	/**
-	 * Use XMLHttpRequest when possible.
+	 * Use XMLHttpRequest when possible. Note that PreloadJS will default to tags or XHR depending on the requirements
+	 * for a media type. For example, audio can not be loaded with XHR unless it is for web audio, so it will default
+	 * to tag loading.
 	 * @property useXHR
 	 * @type Boolean
 	 * @default true
 	 */
 	p.useXHR = true;
-
-	/* //TODO: Implement syncronous behaviour
-	 * Use asynchronous XMLHttpRequests.
-	 * @property async
-	 * @type Boolean
-	 * @default false
-	 *
-	p.useAsync = false;*/
 
 	/**
 	 * Stop processing the current queue when an error is encountered.
@@ -165,60 +194,214 @@ this.createjs = this.createjs||{};
 	p.maintainScriptOrder = true;
 
 	/**
-	 * The next preload queue to process when this one is complete.
+	 * Automatically add tags to the HEAD of the document when they are loaded. Note that when loading JavaScript
+	 * using a tag-based approach (<code>useXHR=false</code>), tags are automatically added to the HEAD in order to
+	 * load them.
+	 * @property addHeadTags
+	 * @todo
+	 * @type {Boolean}
+	 * @default trues
+	 */
+	p.addHeadTags = true; //TODO: Make this work.
+
+	/**
+	 * The next preload queue to process when this one is complete. If an error is thrown in the current queue, and
+	 * <code>stopOnError</code> is <code>true</code>, the next queue will not be processed.
 	 * @property next
 	 * @type PreloadJS
 	 * @default null
 	 */
 	p.next = null;
 
-	//Protected properties
-	p.typeHandlers = null;
-	p.extensionHandlers = null;
-
-	p._loadStartWasDispatched = false;
-	p._maxConnections = 1;
-	p._currentLoads = null;
-	p._loadQueue = null;
-	p._loadedItemsById = null;
-	p._loadedItemsBySrc = null;
-	p._targetProgress = 0; // Actual Progress
-	//TODO: Progress tweening
-	//p._currentProgress = 0; // Progress to Display when tweening
-	//p._progressInterval = null;
-	p._numItems = 0;
-	p._numItemsLoaded = null;
-	p._scriptOrder = null;
-	p._loadedScripts = null;
-
-	// Browser Capabilities
-	p.TAG_LOAD_OGGS = true;
+	/**
+	 * The callback to fire when a single file completes. The event contains a reference to the loaded result, rawResult
+	 * (if it exists), and the item that was loaded.  Alternately, there is an <code>onFileLoad</code> callback that can
+	 * be used as well.
+	 * @event fileLoad
+	 */
+	p.onFileLoad = null;
 
 	/**
-	 * Initialize a PreloadJS instance
-	 * @method initialize
-	 * @param {Boolean} useXHR Use XHR (XML HTTP Requests) for loading. When this is false,
-	 * PreloadJS will use tag loading when possible. Note that Scripts and CSS require
-	 * XHR to load properly.
+	 * The callback to fire when a file progress changes. The event contains a reference to the item that is being
+	 * loaded, the "loaded" and "total" bytes (often just a percentage of 1), and a "progress" property that is a
+	 * percentage of 1. Alternately, there is an <code>onFileProgress</code> callback that can be used as well.
+	 * @event fileProgress
 	 */
-	p.initialize = function(useXHR) {
-		this._numItems = 0;
-		this._numItemsLoaded = 0;
-		this._targetProgress = 0;
+	p.onFileProgress = null;
+
+
+// Protected
+	/**
+	 * An object hash of callbacks that are fired for each file type before the file is loaded, giving plugins the
+	 * ability to override properties of the load. Please see the <code>installPlugin</code> method for more information.
+	 * @property _typeCallbacks
+	 * @type {Object}
+	 * @private
+	 */
+	p._typeCallbacks = null;
+
+	/**
+	 * An object hash of callbacks that are fired for each file extension before the file is loaded, giving plugins the
+	 * ability to override properties of the load. Please see the <code>installPlugin</code> method for more information.
+	 * @property _extensionCallbacks
+	 * @type {null}
+	 * @private
+	 */
+	p._extensionCallbacks = null;
+
+	/**
+	 * Determines if the loadStart event was dispatched already. This event is only fired one time, when the first
+	 * file is requested.
+	 * @property _loadStartWasDispatched
+	 * @type {Boolean}
+	 * @default false
+	 * @private
+	 */
+	p._loadStartWasDispatched = false;
+
+	/**
+	 * The number of maximum open connections that PreloadJS tries to maintain. Please see <code>setMaxConnections</code>
+	 * for more information.
+	 * @property _maxConnections
+	 * @type {Number}
+	 * @default 1
+	 * @private
+	 */
+	p._maxConnections = 1;
+
+	/**
+	 * Determines if there is currently a script loading. This helps ensure that only a single script loads at once when
+	 * using a script tag to do preloading.
+	 * @property _currentlyLoadingScript
+	 * @type {Boolean}
+	 * @private
+	 */
+	p._currentlyLoadingScript = null;
+
+	/**
+	 * An array containing the currently downloading files.
+	 * @property _currentLoads
+	 * @type {Array}
+	 * @private
+	 */
+	p._currentLoads = null;
+
+	/**
+	 * An array containing the queued items that have not yet started downloading.
+	 * @property _loadQueue
+	 * @type {Array}
+	 * @private
+	 */
+	p._loadQueue = null;
+
+	/**
+	 * An array containing downloads that have not completed, so that PreloadJS can be properly reset.
+	 * @property _loadQueueBackup
+	 * @type {Array}
+	 * @private
+	 */
+	p._loadQueueBackup = null;
+
+	/**
+	 * An object hash of items that have finished downloading, indexed by item IDs.
+	 * @property _loadItemsById
+	 * @type {Object}
+	 * @private
+	 */
+	p._loadItemsById = null;
+
+	/**
+	 * An object hash of items that have finished downloading, indexed by item source.
+	 * @property _loadItemsBySrc
+	 * @type {Object}
+	 * @private
+	 */
+	p._loadItemsBySrc = null;
+
+	/**
+	 * An object hash of loaded items, indexed by the ID of the load item.
+	 * @property _loadedResults
+	 * @type {Object}
+	 * @private
+	 */
+	p._loadedResults = null;
+
+	/**
+	 * An object hash of un-parsed loaded items, indexed by the ID of the load item.
+	 * @property _loadedRawResults
+	 * @type {Object}
+	 * @private
+	 */
+	p._loadedRawResults = null;
+
+	/**
+	 * The number of items that have been requested. This helps manage an overall progress without knowing how large
+	 * the files are before they are downloaded.
+	 * @property _numItems
+	 * @type {Number}
+	 * @default 0
+	 * @private
+	 */
+	p._numItems = 0;
+
+	/**
+	 * The number of items that have completed loaded. This helps manage an overall progress without knowing how large
+	 * the files are before they are downloaded.
+	 * @property _numItemsLoaded
+	 * @type {Number}
+	 * @default 0
+	 * @private
+	 */
+	p._numItemsLoaded = 0;
+
+	/**
+	 * A list of scripts in the order they were requested. This helps ensure that scripts are "completed" in the right
+	 * order.
+	 * @property _scriptOrder
+	 * @type {Array}
+	 * @private
+	 */
+	p._scriptOrder = null;
+
+	/**
+	 * A list of scripts that have been loaded. Items are added to this list as <code>null</code> when they are
+	 * requested, contain the loaded item if it has completed, but not been dispatched to the user, and <code>true</true>
+	 * once they are complete and have been dispatched.
+	 * @property _loadedScripts
+	 * @type {Array}
+	 * @private
+	 */
+	p._loadedScripts = null;
+
+	//TODO: Progress tweening
+	//p._targetProgress = 0; // Actual Progress
+	//p._currentProgress = 0; // Progress to Display when tweening
+	//p._progressInterval = null;
+
+	// Overrides abstract method in AbstractLoader
+	p.init = function(useXHR) {
+		this._numItems = this._numItemsLoaded = 0;
 		this._paused = false;
+		this._loadStartWasDispatched = false;
+
 		this._currentLoads = [];
 		this._loadQueue = [];
 		this._loadQueueBackup = [];
 		this._scriptOrder = [];
 		this._loadedScripts = [];
-		this._loadedItemsById = {};
-		this._loadedItemsBySrc = {};
-		this.typeHandlers = {};
-		this.extensionHandlers = {};
-		this._loadStartWasDispatched = false;
+		this._loadItemsById = {};
+		this._loadItemsBySrc = {};
+		this._loadedResults = {};
+		this._loadedRawResults = {};
 
+		// Callbacks for plugins
+		this._typeCallbacks = {};
+		this._extensionCallbacks = {};
+
+		// Determine if we can use XHR. XHR defaults to TRUE, but the browser may not support it.
+		//TODO: Should we be checking for the other XHR types?
 		this.useXHR = (useXHR != false && window.XMLHttpRequest != null);
-		this.determineCapabilities();
+		//this.determineCapabilities(); //LM: Deprecated for now.
 	};
 
 	/**
@@ -232,8 +415,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * Stops an item from being loaded, and removes it from the queue. If nothing is passed,
-	 * all items are removed. This also removes internal references to loaded item(s).
+	 * Stops an item from being loaded, and removes it from the queue. If nothing is passed, all items are removed.
+	 * This also removes internal references to loaded item(s).
 	 * @method remove
 	 * @param {String | Array} idsOrUrls The id or ids to remove from this queue. You can pass
 	 *      an item, an array of items, or multiple items as arguments.
@@ -253,11 +436,13 @@ this.createjs = this.createjs||{};
 		if (!args) {
 			this.close();
 
-			for (var n in this._loadedItemsById) {
-				this._disposeItem(this._loadedItemsById[n]);
+			for (var n in this._loadItemsById) {
+				this._disposeItem(this._loadItemsById[n]);
 			}
 
 			this.initialize(this.useXHR);
+
+		// Remove specific items
 		} else {
 			while (args.length) {
 				var item = args.pop();
@@ -282,8 +467,8 @@ this.createjs = this.createjs||{};
 				}
 
 				if (r) {
-					delete this._loadedItemsById[r.id];
-					delete this._loadedItemsBySrc[r.src];
+					delete this._loadItemsById[r.id];
+					delete this._loadItemsBySrc[r.src];
 					this._disposeItem(r);
 				} else {
 					for (var i=this._currentLoads.length-1;i>=0;i--) {
@@ -312,8 +497,8 @@ this.createjs = this.createjs||{};
 	 */
 	p.reset = function() {
 		this.close();
-		for (var n in this._loadedItemsById) {
-			this._disposeItem(this._loadedItemsById[n]);
+		for (var n in this._loadItemsById) {
+			this._disposeItem(this._loadItemsById[n]);
 		}
 
 		//Reset the queue to its start state
@@ -325,28 +510,33 @@ this.createjs = this.createjs||{};
 		this.loadManifest(a, false);
 	};
 
-	/**
+	/*
 	 * Determine the capabilities based on the current browser/version.
 	 * @method determineCapabilities
+	 * @deprecated
 	 * @private
-	 */
+	 * /
 	p.determineCapabilities = function() {
+		return; // This is deprecated for now.
 		var BD = createjs.PreloadJS.BrowserDetect;
 		if (BD == null) { return; }
-		createjs.PreloadJS.TAG_LOAD_OGGS = BD.isFirefox || BD.isOpera;
 			// && (otherConditions)
-	}
+	}*/
 
 	/**
-	 * Determine if a specific type should be loaded as a binary file
+	 * Determine if a specific type should be loaded as a binary file. Currently, only images and items marked
+	 * specifically as "binary" are loaded as binary. Note that audio is <b>not</b> a binary type, as we can not play
+	 * back using tags if it is loaded as binary. Plugins can change the item type to binary to ensure they get a binary
+	 * result to work with. Binary files are loaded using XHR2.
 	 * @method isBinary
-	 * @param {String} type The type to check
+	 * @param {String} type The item type.
+	 * @return If the specified type is binary.
 	 * @private
 	 */
 	s.isBinary = function(type) {
 		switch (type) {
 			case createjs.PreloadJS.IMAGE:
-			case createjs.PreloadJS.SOUND:
+			case createjs.PreloadJS.BINARY:
 				return true;
 			default:
 				return false;
@@ -354,12 +544,12 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * Register a plugin. Plugins can map to both load types (sound, image, etc), or can map to specific
-	 * extensions (png, mp3, etc). Only one plugin can currently exist per suffix/type.
-	 * Plugins must return an object containing:
-	 *  * callback: The function to call
-	 *  * types: An array of types to handle
-	 *  * extensions: An array of extensions to handle. This is overriden by type handlers
+	 * Register a plugin. Plugins can map to both load types (sound, image, etc), or can map to specific extensions
+	 * (png, mp3, etc). Currently, only one plugin can exist per type/extension. Plugins must return an object containing:
+	 *  <ul><li>callback: The function to call</li>
+	 *      <li>types: An array of types to handle</li>
+	 *      <li>extensions: An array of extensions to handle. This is overriden by type handlers.</li></ul>
+	 * Note that even though a plugin might match both a type and extension handler, only one of them is fired.
 	 * @method installPlugin
 	 * @param {Function} plugin The plugin to install
 	 */
@@ -368,21 +558,24 @@ this.createjs = this.createjs||{};
 		var map = plugin.getPreloadHandlers();
 		if (map.types != null) {
 			for (var i=0, l=map.types.length; i<l; i++) {
-				this.typeHandlers[map.types[i]] = map.callback;
+				this._typeCallbacks[map.types[i]] = map.callback;
 			}
 		}
 		if (map.extensions != null) {
 			for (i=0, l=map.extensions.length; i<l; i++) {
-				this.extensionHandlers[map.extensions[i]] = map.callback;
+				this._extensionCallbacks[map.extensions[i]] = map.callback;
 			}
 		}
 	};
 
 	/**
-	 * Set the maximum number of concurrent connections.
+	 * Set the maximum number of concurrent connections. Note that browsers and servers may have a built-in maximum
+	 * number of open connections, so any additional connections may stay remain in a pending state until the browser
+	 * opens the connection. Note that when loading scripts using tags, and <code>maintainScriptOrder=true</code>, only
+	 * one script is loaded at a time due to browser limitations.
 	 * @method setMaxConnections
-	 * @param {Number} value The number of concurrent loads to allow. By default, only a single connection is open at any time.
-	 * Note that browsers and servers may have a built-in maximum number of open connections
+	 * @param {Number} value The number of concurrent loads to allow. By default, only a single connection is open at
+	 *      any time.
 	 */
 	p.setMaxConnections = function (value) {
 		this._maxConnections = value;
@@ -413,7 +606,7 @@ this.createjs = this.createjs||{};
 	 */
 	p.loadFile = function(file, loadNow) {
 		if (file == null) {
-			this._sendError({text: "File is null."});
+			this._sendError({text: "PRELOAD_NO_FILE"});
 			return;
 		}
 		this._addItem(file);
@@ -424,39 +617,40 @@ this.createjs = this.createjs||{};
 	}
 
 	/**
-	 * Load a manifest. This is a shortcut method to load a group of files. To load a single file, use the loadFile method.
-	 * Note that calling loadManifest appends to the current queue, so it can be used multiple times to add files. To clear
-	 * the queue first, use the <b>close()</b> method.
+	 * Load a manifest. This is a shortcut method to load a group of files. To load a single file, use the loadFile
+	 * method. Note that calling loadManifest appends to the current queue, so it can be used multiple times to add
+	 * files. To clear the queue first, use the <b>close()</b> method.
 	 * @method loadManifest
-	 * @param {Array} manifest The list of files to load. Each file can be either
+	 * @param {Array} manifest The list of files to load. Each file can be either:
 	 * <ol>
 	 *     <li>a path to a resource (string). Note that this kind of load item will be
-	 *     converted to an object (next item) in the background.</li>
+	 *      converted to an object (see below) in the background.</li>
 	 *     <li>OR an object that contains:<ul>
 	 *         <li>src: The source of the file that is being loaded. This property is <b>required</b>.
 	 *         The source can either be a string (recommended), or an HTML tag. </li>
 	 *         <li>type: The type of file that will be loaded (image, sound, json, etc).
-	 *         PreloadJS does auto-detection of types using the extension. Supported types are defined on PreloadJS, such as PreloadJS.IMAGE.
-	 *         It is recommended that a type is specified when a non-standard file URI (such as a php script) us used.</li>
-	 *         <li>id: A string indentifier which can be used to reference the loaded object.</li>
-	 *         <li>data: An arbitrary data object, which is included with the loaded object</li>
+	 *         PreloadJS does auto-detection of types using the extension. Supported types are defined on PreloadJS,
+	 *         such as <code>PreloadJS.IMAGE</code>. It is recommended that a type is specified when a non-standard file
+	 *         URI (such as a php script) us used.</li>
+	 *         <li>id: A string identifier which can be used to reference the loaded object.</li>
+	 *         <li>data: An arbitrary data object, which is returned with the loaded object</li>
 	 *     </ul>
 	 * </ol>
-	 * @param {Boolean} loadNow Kick off an immediate load (true) or wait for a load call (false). The default value is true. If the queue is paused, and this value
-	 * is true, the queue will resume.
+	 * @param {Boolean} loadNow Kick off an immediate load (<code>true</code>) or wait for a load call (<code>false</code>).
+	 * The default value is true. If the queue is paused and this value is <code>true</code>, the queue will resume.
 	 */
 	p.loadManifest = function(manifest, loadNow) {
 		var data;
 
 		if (manifest instanceof Array) {
 			if (manifest.length == 0) {
-				this._sendError({text: "Manifest is empty."});
+				this._sendError({text: "PRELOAD_MANIFEST_EMPTY"});
 				return;
 			}
 			data = manifest;
 		} else {
 			if (manifest == null) {
-				this._sendError({text: "Manifest is null."});
+				this._sendError({text: "PRELOAD_MANIFEST_NULL"});
 				return;
 			}
 			data = [manifest];
@@ -467,45 +661,61 @@ this.createjs = this.createjs||{};
 		}
 
 		if (loadNow !== false) {
-			this._loadNext();
+			this.setPaused(false);
 		}
 	};
 
-	/**
-	 * Begin loading the queued items.
-	 * @method load
-	 */
+	// Overrides abstract method in AbstractLoader
 	p.load = function() {
 		this.setPaused(false);
 	};
 
 	/**
-	 * Lookup a loaded item using either the "id" or "src" that was specified when loading it.
-	 * @method getResult
-	 * @param {String} value The "id" or "src" of the loaded item.
-	 * @return {Object} A result object containing the contents of the object that was initially requested using loadFile or loadManifest, including:
-     * <ol>
-     *     <li>src: The source of the file that was requested.</li>
-     *     <li>type: The type of file that was loaded. If it was not specified, this is auto-detected by PreloadJS using the file extension.</li>
-     *     <li>id: The id of the loaded object. If it was not specified, the ID will be the same as the "src" property.</li>
-     *     <li>data: Any arbitrary data that was specified, otherwise it will be undefined.
-	 *     <li>result: The loaded object. PreloadJS provides usable tag elements when possible:<ul>
-	 *          <li>An HTMLImageElement tag (&lt;image /&gt;) for images</li>
-	 *          <li>An HTMLAudioElement tag (&lt;audio &gt;) for audio</li>
-	 *          <li>A script tag for JavaScript (&lt;script&gt;&lt;/script&gt;)</li>
-	 *          <li>A style tag for CSS (&lt;style&gt;&lt;/style&gt;)</li>
-	 *          <li>Raw text for JSON or any other kind of loaded item</li>
-	 *     </ul></li>
-     * </ol>
-     * This object is also returned via the "onFileLoad" callback, although a "target" will be included, which is a reference to the PreloadJS instance.
+	 * Look up a load item using either the "id" or "src" that was specified when loading it.
+	 * @method getItem
+	 * @param {String} value The <code>id</code> or <code>src</code> of the load item.
+	 * @return {Object} The load item that was initially requested using <code>loadFile()</code> or
+	 * <code>loadManifest()</code>. This object is also returned via the "onFileLoad" callback as the "item" parameter
+	 * of the event.
 	 */
-	p.getResult = function(value) {
-		return this._loadedItemsById[value] || this._loadedItemsBySrc[value];
+	p.getItem = function(value) {
+		return this._loadItemsById[value] || this._loadItemsBySrc[value];
 	};
 
 	/**
-	 * Pause or resume the current load. The active item will not cancel, but the next
-	 * items in the queue will not be processed.
+	 * Look up a loaded result using either the "id" or "src" that was specified when loading it.
+	 * @method getResult
+	 * @param {String} value The <code>id</code> or <code>src</code> of the load item.
+	 * @param {Boolean} rawResult Return a raw result instead of a formatted result. This applies to content loaded via
+	 * XHR such as scripts, XML, CSS, and Images. If there is no raw result, the formatted result will be returned
+	 * instead.
+	 * @return {Object} A result object containing the content that was loaded, such as:
+     * <ul>
+	 *      <li>An HTMLImageElement tag (&lt;image /&gt;) for images</li>
+	 *      <li>An HTMLAudioElement tag (&lt;audio &gt;) for audio</li>
+	 *      <li>A script tag for JavaScript (&lt;script&gt;&lt;/script&gt;). Note that scripts loaded with tags
+	 *          may be added to the HTML head.</li>
+	 *      <li>A style tag for CSS (&lt;style&gt;&lt;/style&gt;)</li>
+	 *      <li>Raw text for TEXT</li>
+	 *      <li>A formatted JavaScript object defined by JSON</li>
+	 *      <li>An XML document</li>
+	 *      <li>An binary arraybuffer loaded by XHR</li>
+	 * </ul>
+     * This object is also returned via the "onFileLoad" callback as the "result" parameter of the event.
+	 */
+	p.getResult = function(value, rawResult) {
+		var item = this._loadItemsById[value] || this._loadItemsBySrc[value];
+		if (item == null) { return null; }
+		var id = item.id;
+		if (rawResult && this._loadedRawResults[id]) {
+			return this._loadedRawResults[id];
+		}
+		return this._loadedResults[id];
+	};
+
+	/**
+	 * Pause or resume the current load. Active loads will not be cancelled, but the next items in the queue will not
+	 * be processed when active loads complete.
 	 * @method setPaused
 	 * @param {Boolean} value Whether the queue should be paused or not.
 	 */
@@ -516,41 +726,178 @@ this.createjs = this.createjs||{};
 		}
 	};
 
-	/**
-	 * Close the active queue. Closing a queue completely empties the queue, and prevents any remaining items from starting to
-	 * download. Note that currently there any active loads will remain open, and events may be processed.<br/><br/>
-	 * To stop and restart a queue, use the <b>setPaused(true|false)</b> method instead.
-	 * @method close
-	 */
+	// Overrides abstract method in AbstractLoader
 	p.close = function() {
 		while (this._currentLoads.length) {
 			this._currentLoads.pop().cancel();
 		}
 		this._scriptOrder.length = 0;
 		this._loadedScripts.length = 0;
+		//LM: Should we reset "_loadStartWasDispatched"?
 	};
 
 
 //Protected Methods
-	p._addItem = function(item) {
-		var loadItem = this._createLoadItem(item);
-		if (loadItem != null) {
-			this._loadQueue.push(loadItem);
-			this._loadQueueBackup.push(loadItem);
+	/**
+	 * Add an item to the queue. Items are formatted into a usable object containing all the properties necessary to
+	 * load the content. The load queues is populated with the actual loader instance that handles preloading, and not
+	 * the load item that was passed in by the user.
+	 * @method _addItem
+	 * @param {String | Object} value The item to add to the queue.
+	 * @private
+	 */
+	p._addItem = function(value) {
+		var item = this._createLoadItem(value);
+		var loader = this._createLoader(item);
+		if (loader != null) {
+			this._loadQueue.push(loader);
+			this._loadQueueBackup.push(loader);
 
 			this._numItems++;
 			this._updateProgress();
 
-			if (loadItem.getItem().type == createjs.PreloadJS.JAVASCRIPT) {
-				this._scriptOrder.push(loadItem.getItem());
+			// Only worry about script order when using XHR to load scripts. Tags are only loading one at a time.
+			if (this.maintainScriptOrder
+					&& item.type == createjs.PreloadJS.JAVASCRIPT
+					&& loader instanceof createjs.XHRLoader) {
+				this._scriptOrder.push(item);
 				this._loadedScripts.push(null);
 			}
 		}
 	};
 
+	/**
+	 * Create a refined load item, which contains all the required properties (src, type, extension, tag). The type of
+	 * item is determined by browser support, requirements based on the file type, and developer settings. For example,
+	 * XHR is only used for file types that support it in new browsers. Before the item is returned, any plugins
+	 * registered to handle the type or extension will be fired, which may alter the load item.
+	 * @method _createLoadItem
+	 * @param {String | Object | HTMLAudioElement | HTMLImageElement} value The item that needs to be preloaded.
+	 * @return {Object} The loader instance that will be used.
+	 * @private
+	 */
+	p._createLoadItem = function(value) {
+		var item;
+
+		// Create/modify a load item
+		switch(typeof(value)) {
+			case "string":
+				item = {
+					src: value
+				}; break;
+			case "object":
+				if (window.HTMLAudioElement && value instanceof HTMLAudioElement) {
+					item = {
+						tag: value,
+						src: item.tag.src,
+						type: createjs.PreloadJS.SOUND
+					};
+				} else {
+					item = value;
+				}
+				break;
+			default:
+				break;
+		}
+
+		// Once its loaded, the item will contain a result.
+		item.result = null;
+		var match = this._parseURI(item.src);
+		if (match != null) { item.ext = match[5]; }
+		if (item.type == null) {
+			item.type = this._getTypeByExtension(item.ext);
+		}
+
+		// Create a tag for the item. This ensures there is something to either load with or populate when finished.
+		if (item.tag == null) {
+			item.tag = this._createTag(item.type);
+		}
+
+		// If there's no id, set one now.
+		if (item.id == null || item.id == "") {
+            item.id = item.src;
+		}
+
+		// Give plugins a chance to modify the loadItem:
+		var customHandler = this._typeCallbacks[item.type] || this._extensionCallbacks[item.ext];
+		if (customHandler) {
+			var result = customHandler(item.src, item.type, item.id, item.data);
+			//Plugin will handle the load, so just ignore it.
+			if (result === false) {
+				return null;
+
+			// Load as normal:
+			} else if (result === true) {
+				// Do Nothing
+
+			// Result is a loader class:
+			} else {
+				if (result.src != null) { item.src = result.src; }
+				if (result.id != null) { item.id = result.id; }
+				if (result.tag != null && result.tag.load instanceof Function) { //Item has what we need load
+					item.tag = result.tag;
+				}
+			}
+
+			// Allow type overriding:
+			if (result.type) { item.type = result.type; }
+
+			// Update the extension in case the type changed:
+			match = this._parseURI(item.src);
+			if (match != null) { item.ext = match[5]; }
+		}
+
+		// Store the item for lookup. This also helps clean-up later.
+		this._loadItemsById[item.id] = item;
+		this._loadItemsBySrc[item.src] = item;
+
+		return item;
+	};
+
+	/**
+	 * Create a loader for a load item.
+	 * @method _createLoader
+	 * @param {Object} item A formatted load item that can be used to generate a loader.
+	 * @return {AbstractLoader} A loader that can be used to load content.
+	 * @private
+	 */
+	p._createLoader = function(item) {
+		// Initially, try and use the provided/supported XHR mode:
+		var useXHR = this.useXHR;
+
+		// Determine the XHR usage overrides:
+		switch (item.type) {
+			case createjs.PreloadJS.JSON:
+			case createjs.PreloadJS.XML:
+			case createjs.PreloadJS.TEXT:
+				useXHR = true; // Always use XHR2 with text/XML
+				break;
+			case createjs.PreloadJS.SOUND:
+				useXHR = false; // Never load audio using XHR. WebAudio will be loaded as a BINARY type.
+				break;
+			// Note: IMAGE, CSS, SCRIPT, SVG can all use TAGS or XHR.
+		}
+
+		// Create a tag
+		if (useXHR) {
+			return new createjs.XHRLoader(item);
+		} else {
+			return new createjs.TagLoader(item);
+		}
+	};
+
+
+	/**
+	 * Load the next item in the queue. If the queue is empty (all items have been loaded), then the complete events
+	 * are processed. The queue will "fill up" any empty slots, up to the <code>maxConcurrentLoads</code>. The only
+	 * exception is scripts that are loaded using tags - which have to be loaded one at a time to maintain load order.
+	 * @method _loadNext
+	 * @private
+	 */
 	p._loadNext = function() {
 		if (this._paused) { return; }
 
+		// Only dispatch loadStart event when the first file is loaded.
 		if (!this._loadStartWasDispatched) {
 			this._sendLoadStart();
 			this._loadStartWasDispatched = true;
@@ -560,35 +907,60 @@ this.createjs = this.createjs||{};
 			this.loaded = true;
 			this._sendComplete();
 			if (this.next && this.next.load) {
-				//LM: Do we need to apply here?
-				this.next.load.apply(this.next);
+				this.next.load();
+				//TODO: Test. This was changed from a load.apply
 			}
 		}
 
-		while (this._loadQueue.length && this._currentLoads.length < this._maxConnections) {
-			var loadItem = this._loadQueue.shift();
-			this._loadItem(loadItem);
+		// Must iterate forwards to load in the right order.
+		for (var i=0, l=this._loadQueue.length; i<l; i++) {
+			if (this._currentLoads.length >= this._maxConnections) { break; }
+			var loader = this._loadQueue[i];
+
+			// Determine if we should be only loading one at a time:
+			if (this.maintainScriptOrder
+					&& loader instanceof createjs.TagLoader
+					&& loader.getItem().type == createjs.PreloadJS.JAVASCRIPT) {
+				if (this._currentlyLoadingScript) { continue; } // Later items in the queue might not be scripts.
+				this._currentlyLoadingScript = true;
+			}
+			this._loadQueue.splice(i, 1);
+			this._loadItem(loader);
+			i--; l--;
 		}
 	};
 
-	p._loadItem = function(item) {
-		item.onProgress = createjs.PreloadJS.proxy(this._handleProgress, this);
-		item.onComplete = createjs.PreloadJS.proxy(this._handleFileComplete, this);
-		item.onError = createjs.PreloadJS.proxy(this._handleFileError, this);
-
-		this._currentLoads.push(item);
-
-		item.load();
+	/**
+	 * Begin loading an item. Events are not added to the loaders until the load starts.
+	 * @method _loadItem
+	 * @param {AbstractLoader} loader The loader instance to start. Currently, this will be an XHRLoader or TagLoader.
+	 * @private
+	 */
+	p._loadItem = function(loader) {
+		loader.onProgress = createjs.PreloadJS.proxy(this._handleProgress, this);
+		loader.onComplete = createjs.PreloadJS.proxy(this._handleFileComplete, this);
+		loader.onError = createjs.PreloadJS.proxy(this._handleFileError, this);
+		this._currentLoads.push(loader);
+		loader.load();
 	};
 
+	/**
+	 * The callback that is fired when a loader enounters an error. The queue will continue loading unless
+	 * <code>stopOnError</code> is set to <code>true</code>.
+	 * @method _handleFileError
+	 * @param {Object} event The error event, containing relevant error information.
+	 * @private
+	 */
 	p._handleFileError = function(event) {
 		var loader = event.target;
-
-		var resultData = this._createResultData(loader.getItem());
 		this._numItemsLoaded++;
 		this._updateProgress();
 
-		this._sendError(resultData);
+		var event = {
+			//TODO: Add error text?
+			item: loader.getItem()
+		};
+		this._sendError(event);
 
 		if (!this.stopOnError) {
 			this._removeLoadItem(loader);
@@ -596,82 +968,84 @@ this.createjs = this.createjs||{};
 		}
 	};
 
-	p._createResultData = function(item) {
-		var resultData = {id:item.id, result:null, data:item.data, type:item.type, src:item.src};
-		this._loadedItemsById[item.id] = resultData;
-		this._loadedItemsBySrc[item.src] = resultData;
-		return resultData;
-	};
-
+	/**
+	 * An item has finished loading. We can assume that it is totally loaded, has been parsed for immediate use, and
+	 * is available as the "result" property on the load item. The raw text result for items that have been parsed
+	 * (such as JSON, XML, CSS, JavaScript, etc) is available as the "rawResult" on the load item.
+	 * @method _handleFileComplete
+	 * @param {Object} event The event object from the loader.
+	 * @private
+	 */
 	p._handleFileComplete = function(event) {
 		var loader = event.target;
 		var item = loader.getItem();
-		var resultData = this._createResultData(item);
+
+		this._loadedResults[item.id] = loader.getResult();
+		if (loader instanceof createjs.XHRLoader) {
+			this._loadedRawResults[item.id] = loader.getRawResult();
+		}
 
 		this._removeLoadItem(loader);
 
-		//Convert to proper tag ... if we need to.
-		if (loader instanceof createjs.XHRLoader) {
-			resultData.result = this._createResult(item, loader.getResult());
-		} else {
-			resultData.result = item.tag;
+		// Ensure that script loading happens in the right order.
+		if (this.maintainScriptOrder && item.type == createjs.PreloadJS.JAVASCRIPT) {
+			if (loader instanceof createjs.TagLoader) {
+				this._currentlyLoadingScript = false;
+			} else {
+				this._loadedScripts[this._scriptOrder.indexOf(item)] = item;
+				this._checkScriptLoadOrder(loader);
+				return;
+			}
 		}
 
-		//TODO: Move tag creation to XHR?
-		switch (item.type) {
-			case createjs.PreloadJS.IMAGE: //LM: Consider moving this to XHRLoader
-				if(loader instanceof createjs.XHRLoader) {
-					var _this = this; // Use closure workaround to maintain reference to item/result
-					resultData.result.onload = function(event) {
-						_this._handleFileTagComplete(item, resultData);
-					}
-					return;
-				}
-				break;
-			case createjs.PreloadJS.JAVASCRIPT:
-				if (this.maintainScriptOrder) {
-					this._loadedScripts[this._scriptOrder.indexOf(item)] = item;
-					this._checkScriptLoadOrder(loader);
-					return;
-				}
-				break;
-		}
+		this._processFinishedLoad(item);
+	}
 
-		this._handleFileTagComplete(item, resultData);
-	};
-
-	p._checkScriptLoadOrder = function () {
-		var l = this._loadedScripts.length;
-
-		for (var i=0;i<l;i++) {
-			var order = this._loadedScripts[i];
-			if (order === null) { break; }
-			if (order === true) { continue; }
-
-			var item = this.getResult(order.src);
-            var resultData = this.getResult(order.id);
-            resultData.result = item.result;
-			this._handleFileTagComplete(item, resultData);
-			this._loadedScripts[i] = true;
-
-			i--;
-			l--;
-		}
-	};
-
-	p._handleFileTagComplete = function(item, resultData) {
+	p._processFinishedLoad = function(item) {
+		// Old handleFileTagComplete follows here.
 		this._numItemsLoaded++;
 
+		// This calls a handler specified on the actual load item. Currently, the SoundJS plugin uses this.
 		if (item.completeHandler) {
-			item.completeHandler(resultData);
+			item.completeHandler(item);
 		}
 
 		this._updateProgress();
-		this._sendFileComplete(resultData);
+		this._sendFileComplete(item);
 
 		this._loadNext();
 	};
 
+	/**
+	 * Ensure the scripts load and dispatch in the correct order. When using XHR, scripts are stored in an array in the
+	 * order they were added, but with a "null" value. When they are completed, the value is set to the load item,
+	 * and then when they are processed and dispatched, the value is set to <code>true</code>. This method simply
+	 * iterates the array, and ensures that any loaded items that are not preceded by a <code>null</code> value are
+	 * dispatched.
+	 * @method _checkScriptLoadOrder
+	 * @private
+	 */
+	p._checkScriptLoadOrder = function () {
+		var l = this._loadedScripts.length;
+
+		for (var i=0;i<l;i++) {
+			var item = this._loadedScripts[i];
+			if (item === null) { break; } // This is still loading. Do not process further.
+			if (item === true) { continue; } // This has completed, and been processed. Move on.
+
+			// This item has finished, and is the next one to get dispatched.
+			this._processFinishedLoad(item);
+			this._loadedScripts[i] = true;
+			i--; l--;
+		}
+	};
+
+	/**
+	 * A load item is completed or was canceled, and needs to be removed from lists.
+	 * @method _removeLoadItem
+	 * @param {AbstractLoader} loader A loader instance to remove.
+	 * @private
+	 */
 	p._removeLoadItem = function(loader) {
 		var l = this._currentLoads.length;
 		for (var i=0;i<l;i++) {
@@ -681,68 +1055,30 @@ this.createjs = this.createjs||{};
 		}
 	};
 
-	p._createResult = function(item, data) {
-		var tag = null;
-		var resultData;
-		switch (item.type) {
-			case createjs.PreloadJS.IMAGE:
-				tag = this._createImage(); break;
-			case createjs.PreloadJS.SOUND:
-				tag = item.tag || this._createAudio(); break;
-			case createjs.PreloadJS.CSS:
-				tag = this._createLink(); break;
-			case createjs.PreloadJS.JAVASCRIPT:
-				tag = this._createScript(); break;
-			case createjs.PreloadJS.SVG:
-				tag = this._createSVG();
-				var svg = this._createXML(data, "image/svg+xml");
-				tag.appendChild(svg);
-				break;
-			case createjs.PreloadJS.XML:
-				resultData = this._createXML(data, "text/xml");
-				break;
-			case createjs.PreloadJS.JSON:
-			case createjs.PreloadJS.TEXT:
-				resultData = data;
-		}
-
-		//LM: Might not need to do this with Audio.
-		if (tag) {
-			if (item.type == createjs.PreloadJS.CSS) {
-				tag.href = item.src;
-			} else if (item.type != createjs.PreloadJS.SVG) {
-				tag.src = item.src;
-			}
-			return tag;
-		} else {
-			return resultData;
-		}
-	};
-
-	p._createXML =  function(data, type) {
-		var resultData;
-		if (window.DOMParser) {
-			var parser = new DOMParser();
-			resultData = parser.parseFromString(data, type);
-		} else { // Internet Explorer
-			var parser = new ActiveXObject("Microsoft.XMLDOM");
-			parser.async = false;
-			parser.loadXML(data);
-			resultData = parser;
-		}
-
-		return resultData;
-	}
-
-	// This is item progress!
+	/**
+	 * An item has dispatched progress.
+	 * @method _handleProgress
+	 * @param {Object} event The progress event from the item.
+	 * @private
+	 */
 	p._handleProgress = function(event) {
 		var loader = event.target;
-		var resultData = this._createResultData(loader.getItem());
-		resultData.progress = loader.progress;
-		this._sendFileProgress(resultData);
+		this._sendFileProgress(loader.getItem(), loader.progress);
 		this._updateProgress();
 	};
 
+	/**
+	 * Overall progress has changed, so determine the new progress amount, and dispatch it. This changes any time an
+	 * item dispatches progress. Note that since we don't know the actual filesize of items before they are loaded, and
+	 * even then, we can only get the size of items loaded with XHR. In this case, we define a "slot" for each item
+	 * (1 item in 10 would get 10%), and then append loaded progress on top of the already-loaded items. For example, if
+	 * 5/10 items have loaded, and item 6 is 20% loaded, the total progress would be:
+	 *      5/10 of the items in the queue (50%)
+	 *      plus 20% of item 6's slot (2%)
+	 *      equals 52%
+	 * @method _updateProgress
+	 * @private
+	 */
 	p._updateProgress = function () {
 		var loaded = this._numItemsLoaded / this._numItems; // Fully Loaded Progress
 		var remaining = this._numItems-this._numItemsLoaded;
@@ -753,134 +1089,84 @@ this.createjs = this.createjs||{};
 			}
 			loaded += (chunk / remaining) * (remaining/this._numItems);
 		}
-		this._sendProgress({loaded:loaded, total:1});
+		this._sendProgress(loaded);
 	}
 
-	p._createLoadItem = function(loadItem) {
-		var item = {};
+	/**
+	 * Clean out item results, to free them from memory. Mainly, the loaded result is cleared out of the item.
+	 * @method _disposeItem
+	 * @param {Object} item The item that was passed in for preloading.
+	 * @private
+	 */
+	p._disposeItem = function(item) {
+		delete this._loadedResults[item.id];
+		delete this._loadedRawResults[item.id];
+		delete this._loadItemsById[item.id];
+		delete this._loadItemsBySrc[item.src];
 
-		// Create/modify a load item
-		switch(typeof(loadItem)) {
-			case "string":
-				item.src = loadItem; break;
-			case "object":
-				if (window['HTMLAudioElement'] && loadItem instanceof HTMLAudioElement) {
-					item.tag = loadItem;
-					item.src = item.tag.src;
-					item.type = createjs.PreloadJS.SOUND;
-				} else {
-					item = loadItem;
-				}
-				break;
-			default:
-				break;
-		}
-
-		// Get source extension
-		item.ext = this._getNameAfter(item.src, ".");
-		if (!item.type) {
-			item.type = this.getType(item.ext);
-		}
-		//If there's no id, set one now.
-		if (item.id == null || item.id == "") {
-			//item.id = this._getNameAfter(item.src, "/");
-            item.id = item.src; //[SB] Using the full src is more robust, and more useful from a user perspective.
-		}
-
-		// Give plugins a chance to modify the loadItem
-		var customHandler = this.typeHandlers[item.type] || this.extensionHandlers[item.ext];
-		if (customHandler) {
-			var result = customHandler(item.src, item.type, item.id, item.data);
-			//Plugin will handle the load, so just ignore it.
-			if (result === false) {
-				return null;
-
-			// Load as normal
-			} else if (result === true) {
-				// Do Nothing
-			// Result is a loader class
-			} else {
-				if (result.src != null) { item.src = result.src; }
-				if (result.id != null) { item.id = result.id; }
-				if (result.tag != null && result.tag.load instanceof Function) { //Item has what we need load
-					item.tag = result.tag;
-				}
-			}
-
-			// Update the extension in case the type changed
-			item.ext = this._getNameAfter(item.src, ".");
-		}
-
-		var useXHR2 = this.useXHR;
-
-		// Determine the XHR2 usage overrides
-		switch (item.type) {
-			case createjs.PreloadJS.JSON:
-			case createjs.PreloadJS.XML:
-			case createjs.PreloadJS.TEXT:
-				useXHR2 = true; // Always use XHR2 with text
-				break;
-			case createjs.PreloadJS.SOUND:
-				if (item.ext == "ogg" && createjs.PreloadJS.TAG_LOAD_OGGS) {
-					useXHR2 = false; // OGGs do not work well with XHR in Firefox.
-				}
-				break;
-		}
-
-		if (this.useXHR == true && (item.type == createjs.PreloadJS.IMAGE || item.type == createjs.PreloadJS.SVG)) {
-			var loader = this._createTagItem(item);
-			loader.useXHR = true;
-			return loader;
-		}
-
-		if (useXHR2) {
-			return new createjs.XHRLoader(item);
-		} else if (!item.tag) {
-			return this._createTagItem(item);
-		} else {
-			return new createjs.TagLoader(item);
-		}
+		// TODO: Clear other props?
 	};
 
-	p._createTagItem = function (item) {
+
+	/**
+	 * Create a tag. This is in PreloadJS instead of TagLoader because no matter how we load the data, we need to
+	 * return it in a tag.
+	 * @param {String} type The item type. Items are passed in by the developer, or deteremined by the extension.
+	 * @return {HTMLImageElement | HTMLAudioElement | HTMLScriptElement | HTMLLinkElement | Object} The tag that is
+	 * created. Note that tags are not appended to the HTML.
+	 * @private
+	 */
+	p._createTag = function(type) {
 		var tag;
-		var srcAttr = "src";
-		var useXHR = false;
-
-		//Create TagItem
-		switch(item.type) {
+		switch (type) {
 			case createjs.PreloadJS.IMAGE:
-				tag = this._createImage();
-				break;
+				return document.createElement("img");
 			case createjs.PreloadJS.SOUND:
-				tag = this._createAudio();
-				break;
-			case createjs.PreloadJS.CSS:
-				srcAttr = "href";
-				useXHR = true;
-				tag = this._createLink();
-				break;
+				tag = document.createElement("audio");
+				// TODO: Create proper type?
+				tag.autoplay = false;
+				return tag;
 			case createjs.PreloadJS.JAVASCRIPT:
-				useXHR = true; //We can't properly get onLoad events from <script /> tags.
-				tag = this._createScript();
-				break;
+				tag = document.createElement("script");
+				tag.type = "text/javascript";
+				return tag;
+			case createjs.PreloadJS.CSS:
+				if (this.useXHR) {
+					tag = document.createElement("style");
+				} else {
+					tag = document.createElement("link");
+				}
+				tag.rel  = "stylesheet";
+				tag.type = "text/css";
+				return tag;
 			case createjs.PreloadJS.SVG:
-				srcAttr = "data";
-				tag = this._createSVG();
-				break;
-			default:
+				if (this.useXHR) {
+					tag = document.createElement("svg");
+				} else {
+					tag = document.createElement("object");
+					tag.type = "image/svg+xml";
+				}
+				return tag;
 		}
-
-		item.tag = tag;
-		return new createjs.TagLoader(item, srcAttr, useXHR);
+		return null;
 	};
 
-	p.getType = function(ext) {
-		switch (ext) {
+	/**
+	 * Determine the type of the object using common extensions. Note that the type can be passed in with the load item
+	 * if it is an unusual extension.
+	 * @param {String} extension The file extension to use to determine the load type.
+	 * @return {String} The determined load type (for example, createjs.PreloadJS.IMAGE) or null if it can not be
+	 *      determined by the extension.
+	 * @private
+	 */
+	p._getTypeByExtension = function(extension) {
+		switch (extension) {
 			case "jpeg":
 			case "jpg":
 			case "gif":
 			case "png":
+			case "webp":
+			case "bmp":
 				return createjs.PreloadJS.IMAGE;
 			case "ogg":
 			case "mp3":
@@ -901,51 +1187,52 @@ this.createjs = this.createjs||{};
 		}
 	};
 
-	p._getNameAfter = function(path, token) {
-		if (!path) { return null; }
-
-		var dotIndex = path.lastIndexOf(token);
-		var lastPiece = path.substr(dotIndex+1);
-		var endIndex = lastPiece.lastIndexOf(/[\b|\?|\#|\s]/);
-		return (endIndex == -1) ? lastPiece : lastPiece.substr(0, endIndex);
+	/**
+	 * Dispatch a fileProgress event (onFileProgress callback). The dispatched event contains:
+	 * <ul><li>target: A reference to the dispatching instance</li>
+	 *      <li>loaded: The amount that has been loaded.</li>
+	 *      <li>total: The total amount that is being loaded.</li>
+	 *      <li>progress: A normalized loaded value between 0 and 1.</li>
+	 *      <li>item: The item that is dispatching progress.</ol>
+	 * @method _sendFileProgress
+	 * @param {Object} item The item that is being loaded.
+	 * @param {Number} progress The amount the item has been loaded (between 0 and 1).
+	 * @protected
+	 */
+	p._sendFileProgress = function(item, progress) {
+		if (this._isCanceled()) {
+			this._cleanUp();
+			return;
+		}
+		var event = {
+			target: this,
+			progress: progress,
+			loaded: progress,
+			total: 1,
+			item: item
+		};
+		this.onFileProgress && this.onFileProgress(event);
+		this._listeners && this.dispatchEvent("fileProgress", null, event);
 	};
 
-	p._disposeItem = function(item) {
-		item.id = null;
-		item.type = null;
-		item.src = null;
-		item.result = null;
-		item.target = null;
-	};
-
-	p._createImage = function() {
-		return document.createElement("img");
-	};
-
-	p._createSVG = function() {
-		var tag = document.createElement("object");
-		tag.type = "image/svg+xml";
-		return tag;
-	};
-
-	p._createAudio = function () {
-		var tag = document.createElement("audio");
-		tag.autoplay = false;
-		tag.type = "audio/ogg";
-		return tag;
-	};
-
-	p._createScript = function() {
-		var tag = document.createElement("script");
-		tag.type = "text/javascript";
-		return tag;
-	};
-
-	p._createLink = function () {
-		var tag = document.createElement("link");
-		tag.type = "text/css";
-		tag.rel  = "stylesheet";
-		return tag;
+	/**
+	 * Dispatch a fileLoad event (onFileLoad callback). The dispatched event contains:
+	 * <ul><li>target: A reference to the dispatching instance</li>
+	 *      <li>item: The item that is dispatching progress.</ol>
+	 * @method _sendFileComplete
+	 * @param {Object} item The item that is being loaded.
+	 * @protected
+	 */
+	p._sendFileComplete = function(item) {
+		if (this._isCanceled()) { return; }
+		var event = {
+			target: this,
+			item: item,
+			result: this._loadedResults[item.id],
+			rawResult: this._loadedRawResults[item.id]
+		};
+		this.onFileLoad && this.onFileLoad(event);
+		this._listeners && this.dispatchEvent("fileLoad", null, event)
 	};
 
 	p.toString = function() {
@@ -978,8 +1265,9 @@ this.createjs = this.createjs||{};
 
 	BrowserDetect.init = function() {
 		var agent = navigator.userAgent;
-		BrowserDetect.isFirefox = (agent.indexOf("Firefox")> -1);
+		BrowserDetect.isFirefox = (agent.indexOf("Firefox") > -1);
 		BrowserDetect.isOpera = (window.opera != null);
+		BrowserDetect.isChrome = (agent.indexOf("Chrome") > -1);
 		BrowserDetect.isIOS = agent.indexOf("iPod") > -1 || agent.indexOf("iPhone") > -1 || agent.indexOf("iPad") > -1;
 	}
 
@@ -1024,3 +1312,31 @@ this.createjs = this.createjs||{};
 
 }());
 
+
+/*
+ Image
+    pass in string or IMG
+    load with XHR or TAG
+    return TAG
+ Audio
+    pass in string or TAG
+    load with TAG
+    return TAG
+ Script AND CSS
+    pass in string
+    load with XHR or TAG
+    return TAG and TEXT
+ SVG
+    pass in string
+    load with
+ JSON AND XML
+    pass in string
+    load with XHR
+    return OBJECT and TEXT
+ BINARY
+    pass in string
+    load with XHR (arraybuffer)
+    return OBJECT
+
+
+ */

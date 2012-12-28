@@ -2,6 +2,26 @@ Version NEXT
 ****************************************************************************************************
 - Added indexOf shim and HTMLAudioElement check to provide IE7/8 support
 - Added methods to clear and reset the preload queue (remove, removeAll, and reset)
+- Added version constant
+- Used error and string constants to work with CreateJS core Log class
+- Changed how the XHR level is determined
+- Changed XHR loading for SCRIPT and CSS tags to inject into tags, instead of reloading them
+- Added tag-based loading of SCRIPT and CSS tags. Note that Scripts can only be loaded one at a time
+	to maintain load order.
+- Removed XHR-loading of AUDIO tags for use with HTMLAudioElement (can not properly preload)
+- Added BINARY file type and enabled plugin-overriding of types.
+- Added better file name parsing via RegExp
+- Changed how event objects are constructed. Events now contain an "item" property, which contains
+	the initially requested object. The items contain a "result" property which points
+	to the loaded & parsed content, as well as a "rawResult" which points to the raw text if it exist.
+- Added JSDocs to all protected and private methods, and expanded documentation considerably
+- Migrated to new NodeJS-based doc process
+- Internal reorganization of entire library
+- Moved onFileLoad and onFileProgress event/handlers from AbstractLoader to PreloadJS
+- Added parsing of XML, JSON, and JavaScript files to return formatted results
+
+FILL IN WHEN COMPLETE
+- Added CreateJS EventDispatcher support
 
 
 Version 0.2.0 [Aug 24, 2012]
