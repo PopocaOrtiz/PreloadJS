@@ -112,7 +112,7 @@ this.createjs = this.createjs||{};
 	 * @static
      * @protected
      */
-	s.FILE_PATTERN = /(\w+:\/{2})?((?:\w+\.){2}\w+)?(\/?[\S]+\/|\/)?([\w\-%]+)(?:\.)(\w+)?(\?\S+)?/i;
+	s.FILE_PATTERN = /(\w+:\/{2})?((?:\w+\.){2}\w+)?(\/?[\S]+\/|\/)?([\w\-\.%]+)(?:\.)(\w+)?(\?\S+)?/i;
 
 	/**
 	 * If the loader has completed loading. This provides a quick check, but also ensures that the different approaches
