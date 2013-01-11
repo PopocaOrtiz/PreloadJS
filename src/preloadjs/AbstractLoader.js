@@ -28,61 +28,6 @@
 */
 
 /**
- * PreloadJS provides a consistent way to preload content for use in HTML applications. Preloading can be done using
- * HTML tags, as well as XHR. By default, PreloadJS will try and load content using XHR, since it provides better
- * support for progress and completion events, however due to cross-domain issues, it may still be preferable to use
- * tag-based loading instead. Note that some content requires XHR to work (plain text, web audio), and some requires
- * tags (HTML audio).
- * <br/><br/>
- * PreloadJS currently supports all modern browsers, and we have done our best to include support for most older
- * browsers is included. If you find an issue with any specific OS/browser combination, please visit
- * http://community.createjs.com/ and report it.
- * <br/><br/>
- * To get started:
- * <ol>
- *     <li>Create a preload queue. An instance of PreloadJS is all you need.</li>
- *     <li>Register any plugins you need. For example, if loading audio for playback with SoundJS, it is recommended
- *     to install SoundJS as a plugin.</li>
- *     <li>Subscribe to events. You can get notified of overall progress, item progress, overall completion,
- *     item completion, and errors.</li>
- *     <li>Load a file or manifest using <code>loadFile()</code> or <code>loadManifest()</code>. You can pass a simple
- *          string, an object with additional parameters and data, or even an HTML tag.</li>
- *     <li>Once your file or queue is loaded, look up results in event objects, or using simple APIs to use in your HTML
- *          applications.</li>
- * </ol>
- *
- * Loaded content can be accessed as the "result" of a fileLoad event, or looked up using the <code>getResult(id)</code>
- * method. This will always be the usable content, including:
- * <ul>
- *     <li>Image: An &lt;img /&gt; tag</li>
- *     <li>Audio: An &lt;audio /&gt; tag</a>
- *     <li>JavaScript: A &lt;script /&gt; tag</li>
- *     <li>CSS: A &lt;link /&gt; tag (tag loading) or a &lt;style /&gt; tag (xhr loading)</li>
- *     <li>XML: An XML DOM node</li>
- *     <li>SVG: An &lt;object /&gt; tag (tag loading) or a &lt;svg /&gt; tag (xhr loading)</li>
- *     <li>JSON: A formatted JavaScript Object</li>
- *     <li>Text: Raw text</li>
- *     <li>Binary: The binary loaded result</li>
- * </ul>
- *
- * Raw loaded content can be accessed using the "rawResult" property of the fileLoad event, or can be looked up using
- * <code>getResult(id, true)</code>. This is only applicable for content that has been parsed for the browser,
- * specifically, JavaScript, CSS, XML, SVG, and JSON objects.
- *
- * @example
- *      var queue = new createjs.PreloadJS();
- *      queue.installPlugin(createjs.SoundJS);
- *      queue.onComplete = handleComplete;
- *      queue.loadFile({id:"sound", src:"http://path/to/sound.mp3"});</code>
- *      queue.loadManifest([
- *          {id: "myImage", src:"path/to/myImage.jpg"}
- *      ]);
- *      function handleComplete() {
- *          createjs.SoundJS.play("mySound");
- *          var image = queue.getResult("mySound");
- *          document.appendChild(image.result);
- *      }
- *
  * @module PreloadJS
  */
 
@@ -92,9 +37,10 @@ this.createjs = this.createjs||{};
 (function() {
 
 	/**
-	 * The base loader, which handles all callbacks. All loaders should extend this class.
+	 * The base loader, which defines all the generic callbacks and events. All loaders extend this class, including the
+	 * {{#crossLink "LoadQueue"}}{{/crossLink}}.
 	 * @class AbstractLoader
-	 * @constructor
+	 * @uses EventDispatcher
 	 */
 	var AbstractLoader = function () {
 		this.init();
@@ -105,27 +51,27 @@ this.createjs = this.createjs||{};
 	var s = AbstractLoader;
 
 	/**
-     * The RegExp pattern to use to parse file URIs. This supports simple file names, as well as full domain URIs with
-     * query strings. The resulting match is: protocol:$1 domain:$2 path:$3 file:$4 ext:$5 params:$6.
-     * @property FILE_PATTERN
-     * @type {RegExp}
+	 * The RegExp pattern to use to parse file URIs. This supports simple file names, as well as full domain URIs with
+	 * query strings. The resulting match is: protocol:$1 domain:$2 path:$3 file name:$4 extension:$5 query:$6.
+	 * @property FILE_PATTERN
+	 * @type {RegExp}
 	 * @static
-     * @protected
-     */
-	s.FILE_PATTERN = /(\w+:\/{2})?((?:\w+\.){2}\w+)?(\/?[\S]+\/|\/)?([\w\-%]+)(?:\.)(\w+)?(\?\S+)?/i;
+	 * @protected
+	 */
+	s.FILE_PATTERN = /(\w+:\/{2})?((?:\w+\.){2}\w+)?(\/?[\S]+\/|\/)?([\w\-%.]+)(?:\.)(\w+)?(\?\S+)?/i;
 
 	/**
 	 * If the loader has completed loading. This provides a quick check, but also ensures that the different approaches
-	 * used for loading do not pile up resulting in more than one <code>onComplete</code> event.
+	 * used for loading do not pile up resulting in more than one <code>complete</code> event.
 	 * @property loaded
-	 * @type Boolean
+	 * @type {Boolean}
 	 * @default false
 	 */
 	p.loaded = false;
 
 	/**
-	 * Determine if a preload instance was canceled. Canceled loads will
-	 * not fire complete events. Note that PreloadJS queues should be closed
+	 * Determine if the loader was canceled. Canceled loads will not fire complete events. Note that
+	 * {{#crossLink "LoadQueue"}}{{/crossLink}} queues should be closed using {{#crossLink "AbstractLoader/close"}}{{/crossLink}}
 	 * instead of canceled.
 	 * @property canceled
 	 * @type {Boolean}
@@ -134,51 +80,95 @@ this.createjs = this.createjs||{};
 	p.canceled = false;
 
 	/**
-	 * The current load progress (percentage) for this item.
+	 * The current load progress (percentage) for this item. This will be a number between 0 and 1.
 	 * @property progress
-	 * @type Number
+	 * @type {Number}
 	 * @default 0
 	 */
 	p.progress = 0;
 
 	/**
-	 * The item this loader controls. Note that this is null in PreloadJS, but will be available on plugins such as
-	 * XHRLoader and TagLoader.
+	 * The item this loader represents. Note that this is null in a {{#crossLink "LoadQueue"}}{{/crossLink}}, but will
+	 * be available on loaders such as {{#crossLink "XHRLoader"}}{{/crossLink}} and {{#crossLink "TagLoader"}}{{/crossLink}}.
 	 * @property _item
-	 * @type Object
+	 * @type {Object}
 	 * @private
 	 */
 	p._item = null;
 
-//Callbacks
+// Events
+	/**
+	 * The event that is fired when the overall progress changes.
+	 * @event progress
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @param {Number} loaded The amount that has been loaded so far. Note that this is may just be a percentage of 1,
+	 * since file sizes can not be determined before a load is kicked off, if at all.
+	 * @param {Number} total The total number of bytes. Note that this may just be 1.
+	 * @param {Number} percent The percentage that has been loaded. This will be a number between 0 and 1.
+	 * @since 0.3.0
+	 */
 
 	/**
-	 * The callback to fire as a file loads and the overall progress changes. The event contains the amount that is
-	 * loaded, the total amount, and a progress property which is a 0-1 value. Alternately there is an
-	 * <code>onProgress</code> callback that can be used as well.
-	 * @event progress
+	 * The event that is fired when a load starts.
+	 * @event loadStart
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * The event that is fired when the entire queue has been loaded.
+	 * @event complete
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @since 0.3.0
+	 */
+
+	/**
+	 * The event that is fired when the loader encounters an error. If the error was encountered by a file, the event will
+	 * contain the item that caused the error. There may be additional properties such as the error reason on event
+	 * objects.
+	 * @event error
+	 * @param {Object} target The object that dispatched the event.
+	 * @param {String} type The event type.
+	 * @param {Object} [item] The item that was being loaded that caused the error. The item was specified in
+	 * the {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} or {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}
+	 * call. If only a string path or tag was specified, the object will contain that value as a property.
+	 * @param {String} [error] The error object or text.
+	 * @since 0.3.0
+	 */
+
+// Callbacks (deprecated)
+	/**
+	 * The callback that is fired when the overall progress changes.
+	 * @property onProgress
+	 * @type {Function}
+	 * @deprecated In favour of the "progress" event. Will be removed in a future version.
 	 */
 	p.onProgress = null;
 
 	/**
-	 * The callback to fire when a load starts. Alternately, there is an <code>onLoadStart</code> callback that can be
-	 * used as well.
-	 * @event loadStart
+	 * The callback that is fired when a load starts.
+	 * @property onLoadStart
+	 * @type {Function}
+	 * @deprecated In favour of the "loadStart" event. Will be removed in a future version.
 	 */
 	p.onLoadStart = null;
 
 	/**
-	 * The callback to fire when the entire queue has been loaded. Alternately, there is an <code>onComplete</code>
-	 * callback that can be used as well.
-	 * @event complete
+	 * The callback that is fired when the loader's content has been entirely loaded.
+	 * @property onComplete
+	 * @type {Function}
+	 * @deprecated In favour of the "complete" event. Will be removed in a future version.
 	 */
 	p.onComplete = null;
 
 	/**
-	 * The callback to fire when the loader encounters an error. If the error was encountered by a file, the event will
-	 * contain the required file data, but the target will be the loader. Alternately, there is an
-	 * <code>onError</code> callback you can use as well.
-	 * @event error
+	 * The callback that is fired when the loader encounters an error.
+	 * @property onError
+	 * @type {Function}
+	 * @deprecated In favour of the "error" event. Will be removed in a future version.
 	 */
 	p.onError = null;
 
@@ -191,20 +181,19 @@ this.createjs = this.createjs||{};
 	p.dispatchEvent = null;
 	p.hasEventListener = null;
 	p._listeners = null;
-
-	// we only use EventDispatcher if it's available:
-	createjs.EventDispatcher && createjs.EventDispatcher.initialize(p); // inject EventDispatcher methods.
+	createjs.EventDispatcher.initialize(p);
 
 
 	/**
-	 * Get a reference to the manifest item that is loaded by this loader.
-	 * @return {Object} The manifest item.
+	 * Get a reference to the manifest item that is loaded by this loader. In most cases this will be the value that was
+	 * passed into {{#crossLink "LoadQueue"}}{{/crossLink}} using {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} or
+	 * {{#crossLink "LoadQueue/loadManifest"}}{{/crossLink}}. However if only a String path was passed in, then it will
+	 * be an Object created by the LoadQueue.
+	 * @return {Object} The manifest item that this loader is responsible for loading.
 	 */
 	p.getItem = function() {
 		return this._item;
 	};
-
-// Abstract methods. This is not properly doc'd in this class. Please see PreloadJS for full docs.
 
 	/**
 	 * Initialize the loader. This is called by the constructor.
@@ -214,17 +203,22 @@ this.createjs = this.createjs||{};
 	p.init = function () {};
 
 	/**
-	 * Begin loading the queued items. This method is usually called when a preload queue is set up but not started
-	 * immediately.
+	 * Begin loading the queued items. This method can be called when a {{#crossLink "LoadQueue"}}{{/crossLink}} is set
+	 * up but not started immediately.
+	 * @example
+	 *      var queue = new createjs.LoadQueue();
+	 *      queue.addEventListener("complete", handleComplete);
+	 *      queue.loadManifest(fileArray, false); // Note the 2nd argument
+	 *      queue.load();
 	 * @method load
 	 */
 	p.load = function() {};
 
 	/**
 	 * Close the active queue. Closing a queue completely empties the queue, and prevents any remaining items from
-	 * starting to download. Note that currently there any active loads will remain open, and events may be processed.
-	 * <br/><br/>
-	 * To stop and restart a queue, use the <code>setPaused(true|false)</code> method instead.
+	 * starting to download. Note that currently any active loads will remain open, and events may be processed.
+	 *
+	 * To stop and restart a queue, use the {{#crossLink "LoadQueue/setPaused"}}{{/crossLink}} method instead.
 	 * @method close
 	 */
 	p.close = function() {};
@@ -232,26 +226,23 @@ this.createjs = this.createjs||{};
 
 //Callback proxies
 	/**
-	 * Dispatch a loadStart event (onLoadStart callback). The dispatched event contains:
-	 * <ul><li>target: A reference to the dispatching instance.</li></ul>
+	 * Dispatch a loadStart event (and onLoadStart callback). Please see the <code>AbstractLoader.loadStart</code> event
+	 * for details on the event payload.
 	 * @method _sendLoadStart
 	 * @protected
 	 */
 	p._sendLoadStart = function() {
 		if (this._isCanceled()) { return; }
 		this.onLoadStart && this.onLoadStart({target:this});
-		this._listeners && this.dispatchEvent("loadStart");
+		this.dispatchEvent("loadStart");
 	};
 
 	/**
-	 * Dispatch a progress event (onProgress callback). The dispatched event contains:
-	 * <ul><li>target: A reference to the dispatching instance</li>
-	 *      <li>loaded: The amount that has been loaded.</li>
-	 *      <li>total: The total amount that is being loaded.</li>
-	 *      <li>progress: A normalized loaded value between 0 and 1</li></ol>
+	 * Dispatch a progress event (and onProgress callback). Please see the <code>AbstractLoader.progress</code> event
+	 * for details on the event payload.
 	 * @method _sendProgress
 	 * @param {Number | Object} value The progress of the loaded item, or an object containing <code>loaded</code>
-	 *      and <code>total</code> properties.f
+	 * and <code>total</code> properties.
 	 * @protected
 	 */
 	p._sendProgress = function(value) {
@@ -268,35 +259,35 @@ this.createjs = this.createjs||{};
 		event.target = this;
 		event.type = "progress";
 		this.onProgress && this.onProgress(event);
-		this._listeners && this.dispatchEvent(event);
+		this.dispatchEvent(event);
 	};
 
 	/**
-	 * Dispatch a complete event (onComplete callback). The dispatched event contains:
-	 * <ul><li>target: A reference to the dispatching instance</li></ol>
+	 * Dispatch a complete event (and onComplete callback). Please see the <code>AbstractLoader.complete</code> event
+	 * for details on the event payload.
 	 * @method _sendComplete
 	 * @protected
 	 */
 	p._sendComplete = function() {
 		if (this._isCanceled()) { return; }
 		this.onComplete && this.onComplete({target:this});
-		this._listeners && this.dispatchEvent("complete");
+		this.dispatchEvent("complete");
 	};
 
 	/**
-	 * Dispatch an error event (onError callback). The dispatched event contains:
-	 * <ul><li>target: A reference to the dispatching instance</li>
-	 *      <li>other: Dispatching objects may contain additional properties such as "text", "source", etc.</ol>
+	 * Dispatch an error event (and onError callback). Please see the <code>AbstractLoader.error</code> event for
+	 * details on the event payload.
 	 * @method _sendError
 	 * @param {Object} event The event object containing specific error properties.
-	 * @private
+	 * @protected
 	 */
 	p._sendError = function(event) {
 		if (this._isCanceled()) { return; }
 		if (event == null) { event = {}; }
 		event.target = this;
+		event.type = "error";
 		this.onError && this.onError(event);
-		this._listeners && this.dispatchEvent("error", null, event);
+		this.dispatchEvent(event);
 	};
 
 	/**
@@ -304,7 +295,7 @@ this.createjs = this.createjs||{};
 	 * do not cause issues after the queue has been cleaned up.
 	 * @method _isCanceled
 	 * @return {Boolean} If the loader has been canceled.
-	 * @private
+	 * @protected
 	 */
 	p._isCanceled = function() {
 		if (window.createjs == null || this.canceled) {
@@ -314,19 +305,22 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * Parse a file URI using the <code>FILE_PATTERN</code> RegExp pattern.
+	 * Parse a file URI using the <code>AbstractLoader.FILE_PATTERN</code> RegExp pattern.
 	 * @method _parseURI
-	 * @param path
-	 * @return {Array} The matched file contents. Please see the <code>FILE_PATTERN</code> for details on the return
-	 *      value. This will return null if it does not match.
-	 * @private
+	 * @param {String} path The file path to parse.
+	 * @return {Array} The matched file contents. Please see the <code>AbstractLoader.FILE_PATTERN</code> property for
+	 * details on the return value. This will return null if it does not match.
+	 * @protected
 	 */
 	p._parseURI = function(path) {
 		if (!path) { return null; }
-
 		return path.match(s.FILE_PATTERN);
 	};
 
+	/**
+	 * @method toString
+	 * @return {String} a string representation of the instance.
+	 */
 	p.toString = function() {
 		return "[PreloadJS AbstractLoader]";
 	};

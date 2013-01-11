@@ -4,9 +4,9 @@
     "description": "Preload JS API.",
 
     "url": "http://www.createjs.com/#!/PreloadJS",
-    "logo":"http://beta.createjs.com/resources/SuiteIcons/PreloadJS/PreloadJS_128x128.png",
+    "logo":"http://createjs.com/resources/SuiteIcons/PreloadJS/PreloadJS_64x64.png",
     "options": {
-        "outdir": "../docs/output",
+        "outdir": "./output",
         "linkNatives": "true",
         "attributesEmit": "true",
         "selleck": "true",

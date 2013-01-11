@@ -36,26 +36,21 @@ this.createjs = this.createjs||{};
 
 (function() {
 
-// TODO: Add a fallback for CSS that does rule checking. No CSS complete event for CSS on Android. See spike.
-
 	/**
-	 * A preloader that loads items using a tag-based approach. HTML audio and images can use this plugin to load content
-	 * cross-domain without security errors, whereas anything loaded with XHR has issues.
-	 * <br />
-	 * Note that for audio tags, we rely on the <code>canPlayThrough</code> event, which fires when the buffer is full
-	 * enough to play the audio all the way through at the current download speed. This completely preloads most sound
-	 * effects, however longer tracks like background audio will only load a portion before the event is fired. Most
-	 * browsers (all excluding Chrome) will continue to preload once this is fired, so this is considered good enough
-	 * for most cases.
-	 * <br />
-	 * There is a built-in fallback for XHR loading for tags that do not fire onload events, such as &lt;script&gt;
-	 * and &lt;style&gt;. This approach is used so that a proper script or style object is returned to PreloadJS when it
-	 * is loaded.
+	 * A preloader that loads items using a tag-based approach. HTML audio and images can use this loader to load
+	 * content cross-domain without security errors, whereas anything loaded with XHR has potential issues with cross-
+	 * domain requests.
+	 *
+	 * Note that for audio tags, TagLoader relies on the <code>canPlayThrough</code> event, which fires when the buffer
+	 * is full enough to play the audio all the way through at the current download speed. This completely preloads most
+	 * sound effects, however longer tracks like background audio will only load a portion before the event is fired.
+	 * Most browsers (all excluding Chrome) will continue to preload once this is fired, so this is considered good
+	 * enough for most cases.
 	 * @class TagLoader
 	 * @constructor
 	 * @extends AbstractLoader
-	 * @param {Object} item The item to load. Please see the <code>PreloadJS.loadFile()</code> for information
-	 *      on load items.
+	 * @param {Object} item The item to load. Please see {{#crossLink "LoadQueue/loadFile"}}{{/crossLink}} for
+	 * information on load items.
 	 */
 	var TagLoader = function (item) {
 		this.init(item);
@@ -65,7 +60,8 @@ this.createjs = this.createjs||{};
 
 // Protected
 	/**
-	 * The timeout that is called if nothing is loaded after a certain delay.
+	 * The timeout that is fired if nothing is loaded after a certain delay. See the <code>LoadQueue.TIMEOUT_TIME</code>
+	 * for the timeout duration.
 	 * @property _loadTimeout
 	 * @type {Number}
 	 * @private
@@ -73,9 +69,9 @@ this.createjs = this.createjs||{};
 	p._loadTimeout = null;
 
 	/**
-	 * A reference to a proxy function, which we need in order to properly remove the event handler when the
-	 * load completes.
-	 * @property _tagCompletProxy
+	 * A reference to a bound function, which we need in order to properly remove the event handler when the load
+	 * completes.
+	 * @property _tagCompleteProxy
 	 * @type {Function}
 	 * @private
 	 */
@@ -91,9 +87,11 @@ this.createjs = this.createjs||{};
 	p._isAudio = false;
 
 	/**
-	 * The tag this loader uses to preload content.
+	 * The HTML tag or JavaScript object this loader uses to preload content. Note that a tag may be a custom object
+	 * that matches the API of an HTML tag (load method, onload callback). For example, flash audio from SoundJS passes
+	 * in a custom object to handle preloading for Flash audio and WebAudio.
 	 * @property _tag
-	 * @type {HTMLAudioElement | SoundLoader | Object}
+	 * @type {HTMLAudioElement | Object}
 	 * @private
 	 */
 	p._tag = null;
@@ -103,13 +101,14 @@ this.createjs = this.createjs||{};
 		this._item = item;
 		this._tag = item.tag;
 		this._isAudio = (window.HTMLAudioElement && item.tag instanceof HTMLAudioElement);
-		this._tagCompleteProxy = createjs.PreloadJS.proxy(this._handleLoad, this);
+		this._tagCompleteProxy = createjs.proxy(this._handleLoad, this);
 	};
 
 	/**
-	 * Get the loaded content.
+	 * Get the loaded content. This is usually an HTML tag or other tag-style object that has been fully loaded. If the
+	 * loader is not complete, this will be null.
 	 * @method getResult
-	 * @return {HTMLAudioE} The loaded and parsed content.
+	 * @return {HTMLImageElement | HTMLAudioElement} The loaded and parsed content.
 	 */
 	p.getResult = function() {
 		return this._tag;
@@ -120,7 +119,6 @@ this.createjs = this.createjs||{};
 		this.canceled = true;
 		this._clean();
 		var item = this.getItem();
-		if (item != null) { item.src = null; } //LM: Do we need this? Might make sense for stopping loads of audio..
 	};
 
 	// Overrides abstract method in AbstractLoader
@@ -130,44 +128,42 @@ this.createjs = this.createjs||{};
 
 		// In case we don't get any events.
 		clearTimeout(this._loadTimeout); // Clear out any existing timeout
-		this._loadTimeout = setTimeout(createjs.PreloadJS.proxy(this._handleTimeout, this), createjs.PreloadJS.TIMEOUT_TIME);
+		this._loadTimeout = setTimeout(createjs.proxy(this._handleTimeout, this), createjs.LoadQueue.TIMEOUT_TIME);
 
 		if (this._isAudio) {
 			tag.src = null; // Unset the source so we can set the preload type to "auto" without kicking off a load. This is only necessary for audio tags passed in by the developer.
-			//tag.type = "audio/ogg"; // TODO: Set proper audio types
 			tag.preload = "auto";
 		}
 
 		// Handlers for all tags
-		tag.onerror = createjs.PreloadJS.proxy(this._handleError, this);
+		tag.onerror = createjs.proxy(this._handleError,  this);
 		// Note: We only get progress events in Chrome, but do not fully load tags in Chrome due to its behaviour, so we ignore progress.
 
 		if (this._isAudio) {
-			tag.onstalled = createjs.PreloadJS.proxy(this._handleStalled, this);
+			tag.onstalled = createjs.proxy(this._handleStalled,  this);
 			// This will tell us when audio is buffered enough to play through, but not when its loaded.
 			// The tag doesn't keep loading in Chrome once enough has buffered, and we have decided that behaviour is sufficient.
 			tag.addEventListener("canplaythrough", this._tagCompleteProxy, false); // canplaythrough callback doesn't work in Chrome, so we use an event.
 		} else {
-			tag.onload = createjs.PreloadJS.proxy(this._handleLoad, this);
-			tag.onreadystatechange = createjs.PreloadJS.proxy(this._handleReadyStateChange, this);
+			tag.onload = createjs.proxy(this._handleLoad,  this);
+			tag.onreadystatechange = createjs.proxy(this._handleReadyStateChange,  this);
 		}
 
 		// Set the src after the events are all added.
 		switch(item.type) {
-			case createjs.PreloadJS.CSS:
+			case createjs.LoadQueue.CSS:
 				tag.href = item.src;
 				break;
-			case createjs.PreloadJS.SVG:
+			case createjs.LoadQueue.SVG:
 				tag.data = item.src;
 				break;
 			default:
 				tag.src = item.src;
 		}
-		//tag[this._srcAttr] = item.src; // LM: This was failing in Chrome, so I substituted the above
 
 		// If its SVG, it needs to be on the DOM to load (we remove it before sending complete).
 		// It is important that this happens AFTER setting the src/data.
-		if (item.type == createjs.PreloadJS.SVG || item.type == createjs.PreloadJS.JAVASCRIPT || item.type == createjs.PreloadJS.CSS) {
+		if (item.type == createjs.LoadQueue.SVG || item.type == createjs.LoadQueue.JAVASCRIPT || item.type == createjs.LoadQueue.CSS) {
 			(document.body || document.getElementsByTagName("body")[0]).appendChild(tag);
 			//TODO: Move SVG off-screen.
 		}
@@ -186,7 +182,7 @@ this.createjs = this.createjs||{};
 	 */
 	p._handleTimeout = function() {
 		this._clean();
-		this._sendError({reason:"PRELOAD_TIMEOUT"}); //TODO: Eval reason prop
+		this._sendError({reason:"PRELOAD_TIMEOUT"}); //TODO: Evaluate a reason prop
 	};
 
 	/**
@@ -210,8 +206,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * Handle the readyStateChange event. We sometimes need this in place of the onload event (mainly SCRIPT and LINK
-	 * tags), but other cases may exist. Note that audio uses a custom "canplaythrough" event.
+	 * Handle the readyStateChange event from a tag. We sometimes need this in place of the onload event (mainly SCRIPT
+	 * and LINK tags), but other cases may exist.
 	 * @method _handleReadyStateChange
 	 * @private
 	 */
@@ -225,10 +221,10 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * Handle a load (complete) event. This is called by tag callbacks, but also by readyState and canPlayThrough
-	 * events. Once loaded, the item is dispatched to PreloadJS.
+	 * Handle a load (complete) event. This is called by tag callbacks, but also by readyStateChange and canPlayThrough
+	 * events. Once loaded, the item is dispatched to the {{#crossLink "LoadQueue"}}{{/crossLink}}.
 	 * @method _handleLoad
-	 * @param event
+	 * @param {Object} [event] A load event from a tag. This is sometimes called from other handlers without an event.
 	 * @private
 	 */
 	p._handleLoad = function(event) {
@@ -241,7 +237,8 @@ this.createjs = this.createjs||{};
 		this.loaded = true;
 
 		// Remove from the DOM
-		if (item.type == createjs.PreloadJS.SVG) { // item.type == createjs.PreloadJS.CSS) { //LM: Evaluate
+		if (item.type == createjs.LoadQueue.SVG) { // item.type == createjs.LoadQueue.CSS) {
+			//LM: We may need to remove CSS tags loaded using a LINK
 			(document.body || document.getElementsByTagName("body")[0]).removeChild(tag);
 		}
 
@@ -250,7 +247,7 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * Clean up the loader. This stops any timers and removes references to prevent errant callbacks.
+	 * Clean up the loader. This stops any timers and removes references to prevent errant callbacks and clean up memory.
 	 * @method _clean
 	 * @private
 	 */

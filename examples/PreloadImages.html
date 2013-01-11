@@ -6,7 +6,7 @@
     <script src="./assets/easeljs-0.5.0.min.js"></script>
     <script src="./assets/tweenjs-0.3.0.min.js"></script> 
 	<script type="text/javascript" src="../src/preloadjs/AbstractLoader.js"></script>
-	<script type="text/javascript" src="../src/preloadjs/PreloadJS.js"></script>
+	<script type="text/javascript" src="../src/preloadjs/LoadQueue.js"></script>
 	<script type="text/javascript" src="../src/preloadjs/TagLoader.js"></script>
 	<script type="text/javascript" src="../src/preloadjs/XHRLoader.js"></script>
 
@@ -80,9 +80,9 @@
 			// Use this instead to use tag loading
 			//preload = new createjs.PreloadJS(false);
 
-            preload.onProgress = handleProgress;
-            preload.onComplete = handleComplete;
-            preload.onFileLoad = handleFileLoad;
+            preload.addEventListener("progress", handleProgress);
+            preload.addEventListener("complete", handleComplete);
+            preload.addEventListener("fileload", handleFileLoad);
             preload.loadManifest(manifest);
 
             stage.update();
